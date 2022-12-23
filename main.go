@@ -1,34 +1,28 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"time"
 
-	clientv3 "go.etcd.io/etcd/client/v3"
+	etcdclient "github.com/madokast/etcd_access/etcdClient"
 )
 
 func main() {
-	etcdClient, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{"192.168.3.62:2379"},
-		DialTimeout: 5 * time.Second,
-	})
+	client := etcdclient.New("192.168.3.62:2379")
+	defer client.Close()
 
-	if err != nil {
-		fmt.Println("Cannot access etcd", err)
-		os.Exit(1)
-	}
+	watchKey := "/user/zrx"
 
-	defer etcdClient.Close()
+	go func() {
+		client.Watch(watchKey, func(value string) {
+			fmt.Println("新值", value)
+		})
+	}()
 
-	res, err := etcdClient.Get(context.Background(), "/user/mdk")
+	time.Sleep(time.Second)
 
-	if err != nil {
-		fmt.Println("Cannot get key", err)
-	}
-
-	for _, kv := range res.Kvs {
-		fmt.Println(string(kv.Key), string(kv.Value))
+	for i := 0; i < 10; i++ {
+		client.Put(watchKey, fmt.Sprintf("w%d", i))
+		time.Sleep(time.Second)
 	}
 }
